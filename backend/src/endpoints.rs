@@ -1,22 +1,41 @@
-use axum::{Json, extract::State, http::StatusCode};
-use crate::structs::{AppState, PasswordEntry, User};
-use uuid::Uuid; 
-use log::error;
+use axum::{Json, extract::{Path, State}, http::StatusCode};
+use crate::{encryption::hash_password, structs::{AppState, PasswordEntry, User}};
+use uuid::Uuid;
+use log::{error, info};
 
-pub async fn create_user(State(state): State<AppState>, Json(mut user) : Json<User>) -> Result<StatusCode, (StatusCode, String)> { 
+pub async fn create_user(State(state): State<AppState>, Json(mut user) : Json<User>) -> Result<(StatusCode, String), (StatusCode, String)> { 
     user.id = Uuid::new_v4().to_string();
+    
+    let hash = hash_password(user.hashed_master_password.clone()).map_err(|err| {
+        error!("Failed to hash the master password : {}", err);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to hash the master password".to_string())
+    })?;
+
+    user.hashed_master_password = hash;
 
     if let Err(err) = state.db.add_user(&user).await {
         error!( "Failed to store the user in the database, error : {}", err);
         return Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to store the user in the database.".to_string()))
     }
 
-    Ok(StatusCode::CREATED)
+    Ok((StatusCode::CREATED, user.id))
 }
 
-pub async fn add_passwords_to_user(State(state): State<AppState>, Json(mut passwords) : Json<Vec<PasswordEntry>>) -> Result<StatusCode, (StatusCode, String)> { 
-    //Ok(StatusCode::CREATED)
-    // TODO: Finish it
-    todo!();
+pub async fn add_entry_to_user(State(state): State<AppState>, Path(user_id): Path<Uuid>, Json(password) : Json<PasswordEntry>) -> Result<StatusCode, (StatusCode, String)> { 
+    let user_id = user_id.to_string();
 
+    info!("User with id {} is adding a passwords {:#?}", user_id, password);
+
+    if !state.db.user_already_exists(&user_id).await.map_err(|err| { 
+        (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+    })? {
+        return Err((StatusCode::NOT_FOUND, "Client doesn't exists.".to_string()));
+    }
+
+    state.db.add_entry(&user_id, password).await.map_err(|err| {
+        error!("Failed to add passwords to database : {}", err);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Database Failure".to_string())
+    })?;
+    
+    Ok(StatusCode::ACCEPTED)
 }

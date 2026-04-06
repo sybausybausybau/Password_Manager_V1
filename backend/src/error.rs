@@ -2,7 +2,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ServerError {
-    #[error("data store disconnected")]
+    #[error("Mongo Db error : {0}")]
     MongoDbError(#[from] mongodb::error::Error),
     #[error("libsodium error : {0}")]
     LibsodiumError(#[from] libsodium_rs::SodiumError),

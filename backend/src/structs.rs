@@ -10,15 +10,11 @@ pub struct AppState {
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub struct PasswordEntry {
+    pub id: String,
     pub origin: String,
     pub username : String,
     pub password : String,
     pub added_time : i64,
-}
-
-pub enum PasswordState {
-    Encrypted(Vec<u8>),
-    Clear(String)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -52,12 +48,12 @@ impl User {
         Ok(())
     }
 
-    pub fn delete_password(&mut self, origin: &str) -> Result<(), ServerError> {
-        if let Some(index) = self.passwords.iter().position(|x| x.origin == origin) {
+    pub fn delete_password(&mut self, id: &str) -> Result<(), ServerError> {
+        if let Some(index) = self.passwords.iter().position(|x| x.id == id) {
             self.passwords.swap_remove(index);
             Ok(())
         } else {
-            Err(ServerError::UnknownError(format!("Password for origin '{}' not found", origin)))
+            Err(ServerError::UnknownError(format!("Password for password id '{}' not found", id)))
         }
     }
 
@@ -67,7 +63,7 @@ impl User {
 }
 
 impl PasswordEntry {
-    pub fn new(origin: String, username: String, password : String) -> PasswordEntry {
-        PasswordEntry {origin, username, password, added_time: Local::now().timestamp()}
+    pub fn new(id: String, origin: String, username: String, password : String) -> PasswordEntry {
+        PasswordEntry {id, origin, username, password, added_time: Local::now().timestamp()}
     }
 } 

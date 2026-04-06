@@ -52,8 +52,11 @@ impl ServerDb {
             .find_one(doc!{"id": id})
             .await?
             .ok_or(ServerError::UnknownError(format!("Cannot find user with id {id}")))?;
-        user.delete_password(&password.origin)?;
+        
+        user.delete_password(&password.id)?;
+
         user.add_password(password)?;
+
         collection.replace_one(doc!{"id": id}, user).await?;
 
         Ok(())

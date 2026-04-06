@@ -1,5 +1,5 @@
 use axum::{
-    Router, routing::{get, post}
+    Router, routing::{post}
 };
 
 use backend::{endpoints::{add_entry_to_user, create_user}, error::ServerError, server_db::ServerDb, structs::AppState};

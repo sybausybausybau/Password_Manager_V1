@@ -39,3 +39,24 @@ pub async fn add_entry_to_user(State(state): State<AppState>, Path(user_id): Pat
     
     Ok(StatusCode::ACCEPTED)
 }
+
+pub async fn modify_entry_of_user(State(state): State<AppState>, Path(user_id): Path<Uuid>, Json(password) : Json<PasswordEntry>) -> Result<StatusCode, (StatusCode, String)> {
+    let user_id = user_id.to_string();
+
+    info!("User with id {} is modifying a passwords {:#?}", user_id, password);
+
+    if !state.db.user_already_exists(&user_id).await.map_err(|err| { 
+        (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+    })? {
+        return Err((StatusCode::NOT_FOUND, "Client doesn't exists.".to_string()));
+    }
+
+    state.db.modify_entry(&user_id, password).await.map_err(|err| {
+        error!("Database failure to modify password {}", err);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Database Failure".to_string())
+
+    })?;
+
+    Ok(StatusCode::ACCEPTED)
+
+}

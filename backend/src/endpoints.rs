@@ -1,6 +1,6 @@
 use axum::{Json, extract::State, http::StatusCode};
 use crate::structs::{AppState, PasswordEntry, User};
-use uuid::Uuid;
+use uuid::Uuid; 
 use log::error;
 
 pub async fn create_user(State(state): State<AppState>, Json(mut user) : Json<User>) -> Result<StatusCode, (StatusCode, String)> { 

@@ -9,7 +9,7 @@ pub enum ServerError {
     #[error("libsodium error : {0}")]
     LibsodiumError(#[from] libsodium_rs::SodiumError),
     #[error("Try From Slice Error")]
-    TryFromCliceError(#[from] TryFromSliceError),
+    TryFromSliceError(#[from] TryFromSliceError),
     #[error("Unknown Error {0}")]
     UnknownError(String),
 }

@@ -1,41 +1,8 @@
 <script lang="ts">
-	let name = '';
-	let email = '';
-	let message = '';
-	let loading = false;
-	let success : boolean | null = null;
-
-	async function handleSubmit(e : any) {
-		e.preventDefault();
-		loading = true;
-		success = null;
-
-        console.log(JSON.stringify({ name, email, message }))
-
-		try {
-			const res = await fetch('https://your-api.com/contact', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({ name, email, message })
-			});
-
-			if (!res.ok) {
-				throw new Error('Erreur serveur');
-			}
-
-			success = true;
-			name = '';
-			email = '';
-			message = '';
-		} catch (err) {
-			console.error(err);
-			success = false;
-		} finally {
-			loading = false;
-		}
-	}
+    interface LoginInfo {
+        username : string,
+        masterPassword : string,
+    }
 </script>
 
 <main class="h-[100vh]! bg-black!">

@@ -22,7 +22,7 @@ pub struct User {
     pub id : String,
     pub username : String,
     pub hashed_master_password : String,
-    passwords : Vec<PasswordEntry>,
+    pub passwords : Vec<PasswordEntry>,
 }
 
 impl User {

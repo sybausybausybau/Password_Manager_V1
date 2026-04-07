@@ -41,3 +41,4 @@ pub fn decrypt_data(crypted_data : &[u8], key : &[u8; 32]) -> Result<String, Ser
     
     Ok(String::from_utf8_lossy(&decrypted_data).to_string())
 }
+

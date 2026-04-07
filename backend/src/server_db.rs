@@ -17,11 +17,19 @@ impl ServerDb {
         Ok(ServerDb { main_db })
     }
 
-    pub async fn user_already_exists(&self, id : &str) -> Result<bool, ServerError> {
+    pub async fn user_exists(&self, id : &str) -> Result<bool, ServerError> {
         let collection = self.main_db.collection::<User>("users");
         match collection.find_one(doc!{"id": id}).await? {
             Some(_) => Ok(true),
             None => Ok(false),
+        }
+    }
+
+    pub async fn get_user(&self, id : &str) -> Result<Option<User>, ServerError> {
+        let collection = self.main_db.collection::<User>("users");
+        match collection.find_one(doc!{"id": id}).await? {
+            Some(user) => Ok(Some(user)),
+            None => Ok(None),
         }
     }
 
@@ -45,7 +53,7 @@ impl ServerDb {
     
         Ok(())
     }
-    // TODO : A finir
+
     pub async fn modify_entry(&self, id : &str, password: PasswordEntry) -> Result<(), ServerError>{
         let collection = self.main_db.collection::<User>("users");
         let mut user = collection

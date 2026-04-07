@@ -2,7 +2,7 @@ use mongodb::Database;
 use mongodb::{Client, bson::doc};
 use crate::error::ServerError;
 use crate::structs::{PasswordEntry, User};
-use log::info;
+//use log::info;
 
 #[derive(Clone)]
 pub struct ServerDb {
@@ -64,6 +64,20 @@ impl ServerDb {
         user.delete_password(&password.id)?;
 
         user.add_password(password)?;
+
+        collection.replace_one(doc!{"id": id}, user).await?;
+
+        Ok(())
+    }
+
+    pub async fn delete_entry(&self, id : &str, password: PasswordEntry) -> Result<(), ServerError>{
+        let collection = self.main_db.collection::<User>("users");
+        let mut user = collection
+            .find_one(doc!{"id": id})
+            .await?
+            .ok_or(ServerError::UnknownError(format!("Cannot find user with id {id}")))?;
+        
+        user.delete_password(&password.id)?;
 
         collection.replace_one(doc!{"id": id}, user).await?;
 

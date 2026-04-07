@@ -1,17 +1,15 @@
 use axum::{Json, extract::{Path, State}, http::StatusCode};
 use crate::{encryption::{decrypt_data, hash_password}, structs::{AppState, PasswordEntry, User}};
 use uuid::Uuid;
-use log::{error, info};
+use log::{debug, error, info};
 
 pub async fn create_user(State(state): State<AppState>, Json(mut user) : Json<User>) -> Result<(StatusCode, String), (StatusCode, String)> { 
     user.id = Uuid::new_v4().to_string();
     
-    let hash = hash_password(user.hashed_master_password.clone()).map_err(|err| {
+    user.hashed_master_password = hash_password(&user.hashed_master_password).map_err(|err| {  //* Hashed master password is not really hashed at this point, it's the master password sent by the client, but we will hash it before storing it in the database, so I keep the name of the field as is to avoid confusion
         error!("Failed to hash the master password : {}", err);
         (StatusCode::INTERNAL_SERVER_ERROR, "Failed to hash the master password".to_string())
     })?;
-
-    user.hashed_master_password = hash;
 
     if let Err(err) = state.db.add_user(&user).await {
         error!( "Failed to store the user in the database, error : {}", err);
@@ -27,6 +25,7 @@ pub async fn add_entry_to_user(State(state): State<AppState>, Path(user_id): Pat
     info!("User with id {} is adding a passwords {:#?}", user_id, password);
 
     if !state.db.user_exists(&user_id).await.map_err(|err| { 
+        debug!("User with id {} doesn't exists", user_id);
         (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
     })? {
         return Err((StatusCode::NOT_FOUND, "Client doesn't exists.".to_string()));
@@ -61,7 +60,7 @@ pub async fn modify_entry_of_user(State(state): State<AppState>, Path(user_id): 
 
 }
 
-pub async fn get_password_entries(State(state): State<AppState>, Path(user_id): Path<Uuid>) -> Result<Json<Vec<PasswordEntry>>, (StatusCode, String)> {
+pub async fn get_entries(State(state): State<AppState>, Path(user_id): Path<Uuid>) -> Result<Json<Vec<PasswordEntry>>, (StatusCode, String)> {
     let user_id = user_id.to_string();
 
     info!("User with id {}", user_id);
@@ -76,20 +75,18 @@ pub async fn get_password_entries(State(state): State<AppState>, Path(user_id): 
         error!("Failed to get password entry : {err}");
         (StatusCode::INTERNAL_SERVER_ERROR, "Database Failure".to_string()) 
     })? {
-        Some(user) => {
-            let key = &user.hashed_master_password
-                .as_bytes()[..32]
-                .try_into()
-                .map_err(|e| {
-                    error!("Invalid key for user {:#?}, {e}", user);
-                    (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get passwords".to_string())
-                })?;
+        Some(mut user) => {
+            let key = &user.hashed_master_password.as_bytes();
 
-            let decrypted_passwords = user.passwords.into_iter().map(|pwd_entry| {
-                pwd_entry = decrypt_data(pwd_entry.password.as_bytes(), key)?;
-                
-                }).collect::<Vec<PasswordEntry>>();
-            return Ok(Json(decrypted_passwords))
+            for entry in &mut user.passwords {
+                entry.password = decrypt_data(&entry.password, &entry.salt, &(key).to_vec())
+                .map_err(|err| {
+                    error!("Failed to decrypt password entry for user id {}, password entry : {:#?}, error {err}", user_id, entry);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get passwords".to_string())
+                })?.into();
+            }
+
+            return Ok(Json(user.passwords))
         },
         None => return Err((StatusCode::NOT_FOUND, "Client doesn't exists.".to_string())),
     }

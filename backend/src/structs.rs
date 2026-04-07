@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use libsodium_rs::crypto_pwhash;
+use libsodium_rs::{crypto_pwhash};
 use crate::{encryption::{encrypt_data, hash_password}, error::ServerError, server_db::ServerDb};
 use chrono::Local;
 
@@ -13,7 +13,8 @@ pub struct PasswordEntry {
     pub id: String,
     pub origin: String,
     pub username : String,
-    pub password : String,
+    pub password : Vec<u8>,
+    pub salt : [u8; 16],
     pub added_time : i64,
 }
 
@@ -30,20 +31,23 @@ impl User {
         Ok(User {
             id, 
             username, 
-            hashed_master_password : hash_password(master_password)?,
+            hashed_master_password : hash_password(master_password)?.into(),
             passwords: vec![],
             }
         )
     }
 
     pub fn add_password(&mut self, mut entry: PasswordEntry) -> Result<(), ServerError> {
-        let key: &[u8; 32] = self
-            .hashed_master_password
-            .as_bytes()[0..32]
-            .try_into()
-            .expect("slice with incorrect length");
 
-        entry.password = String::from_utf8_lossy(&encrypt_data(entry.password.as_bytes(), key)?).to_string();
+        let key = self
+            .hashed_master_password
+            .as_bytes();
+
+        let (password, salt)  = encrypt_data(&entry.password, key)?;
+
+        entry.password = password;
+        entry.salt = salt;
+
         self.passwords.push(entry); 
         Ok(())
     }
@@ -58,12 +62,12 @@ impl User {
     }
 
     pub fn valid_master_password(&self, master_password: String) -> Result<bool, ServerError> {
-        Ok(crypto_pwhash::pwhash_str_verify(&self.hashed_master_password, master_password.as_bytes())?)
+        Ok(crypto_pwhash::pwhash_str_verify(&master_password, &self.hashed_master_password.as_bytes())?)
     }
 }
 
 impl PasswordEntry {
-    pub fn new(id: String, origin: String, username: String, password : String) -> PasswordEntry {
-        PasswordEntry {id, origin, username, password, added_time: Local::now().timestamp()}
+    pub fn new(id: String, origin: String, username: String, password : Vec<u8>) -> PasswordEntry {
+        PasswordEntry {id, origin, username, password, salt : [0u8; 16], added_time: Local::now().timestamp()}
     }
 } 

@@ -1,2 +1,2 @@
 # Password_Manager_V1
-Repo created by Sansanrrt and the Debt Collector
+Password Manager in rust

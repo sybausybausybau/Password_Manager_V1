@@ -17,9 +17,9 @@ impl ServerDb {
         Ok(ServerDb { main_db })
     }
 
-    pub async fn user_exists(&self, username : &str) -> Result<bool, ServerError> {
+    pub async fn user_exists(&self, id : &str) -> Result<bool, ServerError> {
         let collection = self.main_db.collection::<User>("users");
-        match collection.find_one(doc!{"username": username}).await? {
+        match collection.find_one(doc!{"id": id}).await? {
             Some(_) => Ok(true),
             None => Ok(false),
         }
@@ -82,5 +82,14 @@ impl ServerDb {
         collection.replace_one(doc!{"id": id}, user).await?;
 
         Ok(())
+    }
+
+    pub async fn get_user_id_from_username(&self, username: &str) -> Result<String, ServerError>{
+        let collection = self.main_db.collection::<User>("users");
+        let user = collection
+            .find_one(doc!{"username": &username})
+            .await?
+            .ok_or(ServerError::UnknownError(format!("Cannot find user with username {}", &username)))?;
+        Ok(user.id)
     }
 }

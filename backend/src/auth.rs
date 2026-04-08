@@ -3,17 +3,20 @@ pub use serde::{Deserialize, Serialize};
 pub use jsonwebtoken::{encode, decode, DecodingKey, Validation, Algorithm, Header, EncodingKey};
 pub use chrono::Utc;
 use crate::error::ServerError;
+use axum_extra::extract::{cookie::Cookie, cookie::SameSite::Strict, CookieJar};
+
+const JWT_TIME_TO_LIVE : i64 = 900;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String, // user_id
-    pub iat: String, // issued at
-    pub exp: usize,
+    iat: String, // issued at
+    exp: usize, // seconde
 }
 
 pub async fn create_token(user_id: String, secret: String) -> Result<String, ServerError>{
     let now = Utc::now().timestamp();
-    let my_claims = Claims {sub: user_id, iat: now.to_string(), exp: (now + 90) as usize};
+    let my_claims = Claims {sub: user_id, iat: now.to_string(), exp: (now + JWT_TIME_TO_LIVE) as usize};
     Ok(encode(&Header::default(), &my_claims, &EncodingKey::from_secret(secret.as_ref()))?)
 }
 
@@ -21,11 +24,21 @@ pub async fn decode_token(token: String, secret: String) -> Result<TokenData<Cla
     Ok(decode::<Claims>(&token, &DecodingKey::from_secret(secret.as_ref()), &Validation::new(Algorithm::HS256))?)
 }
 
+pub async fn create_cookie(token: String) -> Result<CookieJar, ServerError> {
+    let jar = CookieJar::new().add(
+            Cookie::build(("token", token))
+            .http_only(true)
+            .secure(true)
+            .path("/")
+            .same_site(Strict)
+            .build()
+    );
+    Ok(jar)
+}
 
 #[cfg(test)]
 pub mod tests {
     use super::*;
-
 
     #[test]
     fn create_token_test() {

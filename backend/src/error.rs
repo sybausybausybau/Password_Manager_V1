@@ -10,7 +10,7 @@ pub enum ServerError {
     LibsodiumError(#[from] libsodium_rs::SodiumError),
     #[error("Try From Slice Error")]
     TryFromSliceError(#[from] TryFromSliceError),
-    #[error("JWT Error")]
+    #[error("JWT Error {0}")]
     JWTError(#[from] jsonwebtoken::errors::Error),
     #[error("Unknown Error {0}")]
     UnknownError(String),

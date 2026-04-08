@@ -16,6 +16,7 @@ libsodium-rs = "0.2.2"
 serde_json = "1.0.149"
 jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 dotenv = "0.15.0"
+axum-extra = {version = "0.12.5", features = ["cookie"]}
 
 [dependencies.uuid]
 version = "1.23.0"

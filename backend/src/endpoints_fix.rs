@@ -1,6 +1,6 @@
 use axum::{Json, extract::{Path, State}, http::StatusCode};
 
-use crate::{error::ServerError, auth::{decode_token, create_token, create_cookie}, encryption::{decrypt_data, hash_password}, structs::{AppState, PasswordEntry, PasswordId, User}};
+use crate::{auth::{decode_token, create_token, create_cookie}, encryption::{decrypt_data, hash_password}, structs::{AppState, PasswordEntry, PasswordId, User}};
 use uuid::Uuid;
 use log::{debug, error, info};
 use axum_extra::extract::CookieJar;
@@ -38,12 +38,12 @@ pub async fn create_user(State(state): State<AppState>, Json(mut user) : Json<Us
         return Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to store the user in the database.".to_string()))
     }
 
-    let token = login(State(state), &user.username).await.map_err(|err| { 
+    let jar = login(State(state), &user.username).await.map_err(|err| { 
         error!("Failed to create token for user with username {}, error : {:#?}", user.username, err);
         (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create token for user ".to_string())
     })?;
 
-    Ok((StatusCode::CREATED, token))
+    Ok((StatusCode::CREATED, jar))
 }
 
 pub async fn add_entry_to_user(State(state): State<AppState>, Path(token): Path<String>, Json(mut password) : Json<PasswordEntry>) -> Result<StatusCode, (StatusCode, String)> { 

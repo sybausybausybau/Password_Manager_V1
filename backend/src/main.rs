@@ -11,7 +11,7 @@ async fn main() -> Result<(), ServerError> {
 
     unsafe { std::env::set_var("RUST_LOG", "trace") };
 
-    if let Err(err) = dotenv::from_filename(r"C:\Dev\Password Manager V1\Password_Manager_V1\backend\.env") {
+    if let Err(err) = dotenv::from_filename(r".env") {
         let msg = format!("Failed to retrieve .env file : {err}");
         error!("{msg}");
 

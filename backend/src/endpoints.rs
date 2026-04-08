@@ -1,5 +1,5 @@
 use axum::{Json, extract::{Path, State}, http::StatusCode};
-use crate::{encryption::{decrypt_data, hash_password}, structs::{AppState, PasswordEntry, User}};
+use crate::{encryption::{decrypt_data, hash_password}, structs::{AppState, PasswordEntry, User, PasswordId}};
 use uuid::Uuid;
 use log::{debug, error, info};
 
@@ -88,25 +88,25 @@ pub async fn get_entries(State(state): State<AppState>, Path(user_id): Path<Uuid
 
             return Ok(Json(user.passwords))
         },
-        None => return Err((StatusCode::NOT_FOUND, "Client doesn't exists.".to_string())),
+        None => return Err((StatusCode::INTERNAL_SERVER_ERROR, "Client doesn't exists.".to_string())),
     }
 }
 
-pub async fn delete_entry_of_user(State(state): State<AppState>, Path(user_id): Path<Uuid>, Json(password) : Json<PasswordEntry>) -> Result<StatusCode, (StatusCode, String)> {
+pub async fn delete_entry_of_user(State(state): State<AppState>, Path(user_id): Path<Uuid>, Json(password_id) : Json<PasswordId>) -> Result<StatusCode, (StatusCode, String)> {
     let user_id = user_id.to_string();
+    let password_id = password_id.id;
 
-    info!("User with id {} is deleting a passwords {:#?}", user_id, password);
+    info!("User with id {} is deleting a password with id {:?}", user_id, password_id);
 
     if !state.db.user_exists(&user_id).await.map_err(|err| { 
         (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
     })? {
-        return Err((StatusCode::NOT_FOUND, "Client doesn't exists.".to_string()));
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, "Client doesn't exists.".to_string()));
     }
 
-    state.db.delete_entry(&user_id, password).await.map_err(|err| {
+    state.db.delete_entry(&user_id, &password_id).await.map_err(|err| {
         error!("Database failure to delete password {}", err);
         (StatusCode::INTERNAL_SERVER_ERROR, "Database Failure".to_string())
-
     })?;
 
     Ok(StatusCode::ACCEPTED)

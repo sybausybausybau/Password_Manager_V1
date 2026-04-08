@@ -26,6 +26,11 @@ pub struct User {
     pub passwords : Vec<PasswordEntry>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct PasswordId {
+    pub id : String
+}
+
 impl User {
     pub fn new(id : String, username: String, master_password: String) -> Result<Self, ServerError> {
         Ok(User {

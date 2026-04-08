@@ -92,18 +92,39 @@ export const actions: Actions = {
         }
 
         // If there are errors, return a 400 status with the errors object
-        if (Object.keys(errors).length > 0) {
+        const hasErrors = Object.values(errors).some(msgArray => msgArray.length > 0);
+
+        if (hasErrors) {
             return fail(400, { 
                 errors, 
                 username,
-
             });
         }
 
-        // --- Send to your external Backend / DB here ---
-        // const response = await fetch('https://api.yoursite.com/login', { ... });
+        const body = {
+            id : "",
+            username: username,
+            hashed_master_password: password,
+            passwords: []
+        }               
 
-        console.log("wth")
+        const response = await fetch('http://127.0.0.1:3000/create_user', { 
+            method : "POST",
+            body : JSON.stringify(body),
+            headers : {
+                "Content-Type" : "application/json"
+            }
+        });
+
+        console.log(response)
+
+        if (!response.ok) {
+            const result = await response.json(); 
+                return fail(response.status, { 
+                    serverError: result.message || "Backend connection failed",
+                    username 
+                });
+        }
 
         return { success: true };
     }

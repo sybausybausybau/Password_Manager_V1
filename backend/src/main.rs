@@ -2,7 +2,7 @@ use axum::{
     Router, routing::{get, post}
 };
 use backend::{endpoints::{add_entry_to_user, create_user, get_entries, modify_entry_of_user, delete_entry_of_user}, error::ServerError, server_db::ServerDb, structs::AppState};
-use log::{info};
+use log::{error, info};
 use libsodium_rs::ensure_init;
 
 #[tokio::main]
@@ -10,11 +10,20 @@ async fn main() -> Result<(), ServerError> {
 
     unsafe { std::env::set_var("RUST_LOG", "trace") };
 
+    if let Err(err) = dotenv::dotenv() {
+        let msg = format!("Failed to retrieve .env file : {err}");
+        error!("{msg}");
+
+        return Err(ServerError::UnknownError(msg));
+    }
+
     env_logger::init();
     ensure_init().expect("Failed to initialize libsodium");
+    
 
     let state = AppState {
         db : ServerDb::new("mongodb://localhost:27017/").await?,
+        jwt_secret : dotenv::var("").expect("Failed to load JWT Secret from .env file.")
     };
 
     let app = Router::new()

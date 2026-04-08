@@ -5,7 +5,8 @@ use chrono::Local;
 
 #[derive(Clone)]
 pub struct AppState {
-    pub db : ServerDb
+    pub db : ServerDb,
+    pub jwt_secret : String,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]

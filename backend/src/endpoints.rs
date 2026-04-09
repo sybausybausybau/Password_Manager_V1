@@ -1,11 +1,32 @@
-use axum::{Json, extract::{Path, State}, http::StatusCode};
-use crate::{encryption::{decrypt_data, hash_password}, structs::{AppState, PasswordEntry, User, PasswordId}};
+use axum::{Json, extract::State, http::{HeaderMap, HeaderValue, StatusCode}};
+use serde::{Deserialize, Serialize};
+use crate::{auth::{create_token, create_cookie, get_token}, encryption::{decrypt_data, hash_password}, structs::{AppState, PasswordEntry, PasswordId, User}};
 use uuid::Uuid;
 use log::{debug, error, info};
 
-pub async fn create_user(State(state): State<AppState>, Json(mut user) : Json<User>) -> Result<(StatusCode, String), (StatusCode, String)> { 
+fn internal_error<E: std::fmt::Display>(err: E, msg: &str) -> (StatusCode, String) {
+    error!("{}: {}", msg, err); // Log l'erreur réelle pour le serveur
+    (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()) // Message propre pour le client
+}
+
+pub async fn create_user(State(state): State<AppState>, Json(mut user) : Json<User>) -> Result<(StatusCode, HeaderMap), (StatusCode, String)> { 
     user.id = Uuid::new_v4().to_string();
     
+/*     let user_exists = state.db.user_exists(&user.username).await.map_err(|err| {
+        error!("failed to check if user {} exists {}", user.username, err);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to check if user exists".to_string())
+    })?; */
+
+    let user_exists = state.db
+        .user_exists_by_username(&user.username)
+        .await
+        .map_err(|err| internal_error(err, "Failed to check if user exists"))?;
+
+    if user_exists {
+        debug!("{} already exists", user.username);
+        return Err((StatusCode::NOT_ACCEPTABLE, format!("User with username {} already exists", user.username)));
+    }
+
     user.hashed_master_password = hash_password(&user.hashed_master_password).map_err(|err| {  //* Hashed master password is not really hashed at this point, it's the master password sent by the client, but we will hash it before storing it in the database, so I keep the name of the field as is to avoid confusion
         error!("Failed to hash the master password : {}", err);
         (StatusCode::INTERNAL_SERVER_ERROR, "Failed to hash the master password".to_string())
@@ -16,11 +37,37 @@ pub async fn create_user(State(state): State<AppState>, Json(mut user) : Json<Us
         return Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to store the user in the database.".to_string()))
     }
 
-    Ok((StatusCode::CREATED, user.id))
+
+    let token = create_token(user.id, &state.jwt_secret)
+        .await
+        .map_err(|err| internal_error(err, "Failed to create token for user"))?;
+
+    info!("token for {} : {}", &user.username, &token);
+
+    let cookie = create_cookie(token)
+        .await
+        .map_err(|err| internal_error(err, "Failed to create a cookie for user"))?
+        .to_string();
+
+    let cookie = HeaderValue::from_str(&cookie)
+        .map_err(|err| {
+            error!("Failed to create cookie : {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create a token.".to_string())
+        })?;
+
+    let mut headers = HeaderMap::new();
+        
+    headers.append("Set-Cookie", cookie);
+
+    Ok((StatusCode::CREATED, headers))
 }
 
-pub async fn add_entry_to_user(State(state): State<AppState>, Path(user_id): Path<Uuid>, Json(password) : Json<PasswordEntry>) -> Result<StatusCode, (StatusCode, String)> { 
-    let user_id = user_id.to_string();
+pub async fn add_entry_to_user(State(state): State<AppState>, headers : HeaderMap, Json(mut password) : Json<PasswordEntry>) -> Result<StatusCode, (StatusCode, String)> { 
+    let token = get_token(headers, &state.jwt_secret)
+        .await
+        .map_err(|err| internal_error(err, "Failed to decode token"))?;
+    
+    let user_id = token.claims.sub.to_string();
 
     info!("User with id {} is adding a passwords {:#?}", user_id, password);
 
@@ -31,6 +78,8 @@ pub async fn add_entry_to_user(State(state): State<AppState>, Path(user_id): Pat
         return Err((StatusCode::NOT_FOUND, "Client doesn't exists.".to_string()));
     }
 
+    password.id = uuid::Uuid::new_v4().to_string();
+
     state.db.add_entry(&user_id, password).await.map_err(|err| {
         error!("Failed to add passwords to database : {}", err);
         (StatusCode::INTERNAL_SERVER_ERROR, "Database Failure".to_string())
@@ -39,8 +88,12 @@ pub async fn add_entry_to_user(State(state): State<AppState>, Path(user_id): Pat
     Ok(StatusCode::ACCEPTED)
 }
 
-pub async fn modify_entry_of_user(State(state): State<AppState>, Path(user_id): Path<Uuid>, Json(password) : Json<PasswordEntry>) -> Result<StatusCode, (StatusCode, String)> {
-    let user_id = user_id.to_string();
+pub async fn modify_entry_of_user(State(state): State<AppState>, headers: HeaderMap, Json(password) : Json<PasswordEntry>) -> Result<StatusCode, (StatusCode, String)> {
+    let token = get_token(headers, &state.jwt_secret)
+        .await
+        .map_err(|err| internal_error(err, "Failed to decode token"))?;
+    
+    let user_id = token.claims.sub.to_string();
 
     info!("User with id {} is modifying a passwords {:#?}", user_id, password);
 
@@ -53,15 +106,18 @@ pub async fn modify_entry_of_user(State(state): State<AppState>, Path(user_id): 
     state.db.modify_entry(&user_id, password).await.map_err(|err| {
         error!("Database failure to modify password {}", err);
         (StatusCode::INTERNAL_SERVER_ERROR, "Database Failure".to_string())
-
     })?;
 
     Ok(StatusCode::ACCEPTED)
 
 }
 
-pub async fn get_entries(State(state): State<AppState>, Path(user_id): Path<Uuid>) -> Result<Json<Vec<PasswordEntry>>, (StatusCode, String)> {
-    let user_id = user_id.to_string();
+pub async fn get_entries(State(state): State<AppState>, headers: HeaderMap) -> Result<Json<Vec<PasswordEntry>>, (StatusCode, String)> {
+    let token = get_token(headers, &state.jwt_secret)
+        .await
+        .map_err(|err| internal_error(err, "Failed to decode token"))?;
+    
+    let user_id = token.claims.sub.to_string();
 
     info!("User with id {}", user_id);
 
@@ -92,8 +148,12 @@ pub async fn get_entries(State(state): State<AppState>, Path(user_id): Path<Uuid
     }
 }
 
-pub async fn delete_entry_of_user(State(state): State<AppState>, Path(user_id): Path<Uuid>, Json(password_id) : Json<PasswordId>) -> Result<StatusCode, (StatusCode, String)> {
-    let user_id = user_id.to_string();
+pub async fn delete_entry_of_user(State(state): State<AppState>, headers: HeaderMap, Json(password_id) : Json<PasswordId>) -> Result<StatusCode, (StatusCode, String)> {
+    let token = get_token(headers, &state.jwt_secret)
+        .await
+        .map_err(|err| internal_error(err, "Failed to decode token"))?;
+    
+    let user_id = token.claims.sub.to_string();
     let password_id = password_id.id;
 
     info!("User with id {} is deleting a password with id {:?}", user_id, password_id);
@@ -110,4 +170,54 @@ pub async fn delete_entry_of_user(State(state): State<AppState>, Path(user_id): 
     })?;
 
     Ok(StatusCode::ACCEPTED)
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Credential {
+    username : String,        
+    master_password : String
+}
+
+pub async fn login(State(state): State<AppState>, Json(cred): Json<Credential>) -> Result<HeaderMap, (StatusCode, String)> {
+    let user_id = state.db
+        .get_user_id_from_username(&cred.username)
+        .await
+        .map_err(|err| internal_error(err, "Failed to create cookies"))?;
+
+    let user = state.db
+        .get_user(&user_id)
+        .await
+        .map_err(|err| internal_error(err, "Failed to get user from database"))?
+        .ok_or((StatusCode::NOT_FOUND, "User doesn't exists".to_string()))?;
+
+    let valid =user
+        .valid_master_password(&cred.master_password)
+        .map_err(|err| internal_error(err, "Failed to verify master password"))?;
+
+    if !valid {
+        return Err((StatusCode::FORBIDDEN, "Invalid credentials".to_string()))
+    }
+
+    let token = create_token(user_id, &state.jwt_secret)
+        .await
+        .map_err(|err| internal_error(err, "Failed to create cookies"))?;
+
+    info!("token for {} : {}", &cred.username, &token);
+
+    let cookie = create_cookie(token)
+        .await
+        .map_err(|err| internal_error(err, "Failed to create cookies"))?
+        .to_string();
+    
+    let cookie = HeaderValue::from_str(&cookie)
+        .map_err(|err| {
+            error!("Failed to create cookie : {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create a token.".to_string())
+        })?;
+
+    let mut header = HeaderMap::new();
+    
+    header.append("Set-Cookie", cookie);
+    
+    Ok(header)
 }

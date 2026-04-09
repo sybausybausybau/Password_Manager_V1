@@ -52,8 +52,36 @@ function countNumber(s : string) : number {
     return count;
 }
 
+/**
+ * Parses a raw Cookie string into a key-value object.
+ * @param rawCookies - The string from document.cookie or request headers.
+ */
+function parseCookies(rawCookies: string): Record<string, string>  {
+  if (!rawCookies) return {};
+
+  return rawCookies
+    .split(';')
+    .reduce((acc: Record<string, string>, cookieString: string) => {
+      // Split by the first '=' found
+      const [key, ...valueParts] = cookieString.split('=');
+      
+      if (key) {
+        const trimmedKey = key.trim();
+        // Join value parts back in case the value itself contains an '='
+        const value = valueParts.join('=').trim();
+        
+        // Only add to object if key is not empty
+        if (trimmedKey) {
+          acc[trimmedKey] = decodeURIComponent(value);
+        }
+      }
+      
+      return acc;
+    }, {});
+};
+
 export const actions: Actions = {
-    default: async ({ request }) => {
+    default: async ({ request, cookies }) => {
         const data = await request.formData();
         const username = data.get('username')?.toString();
         const password = data.get('password')?.toString();
@@ -119,12 +147,22 @@ export const actions: Actions = {
         console.log(response)
 
         if (!response.ok) {
-            const result = await response.json(); 
-                return fail(response.status, { 
-                    serverError: result.message || "Backend connection failed",
-                    username 
+            if (response.status === 406) {
+                errors.username.push("This username already exists please enter a new one.");
+                return fail(400, { 
+                    errors, 
+                    username : "",
                 });
+            }
+            return fail(response.status, { 
+                serverError: "Backend connection failed",
+                username 
+            });
         }
+
+        let parsed_cookies = parseCookies(response.headers.getSetCookie()[0])
+        cookies.set("jwt_token", parsed_cookies["token"], { path : "\\" })
+    
 
         return { success: true };
     }

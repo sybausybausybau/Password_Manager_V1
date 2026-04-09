@@ -25,6 +25,14 @@ impl ServerDb {
         }
     }
 
+    pub async fn user_exists_by_username(&self, username : &str) -> Result<bool, ServerError> {
+        let collection = self.main_db.collection::<User>("users");
+        match collection.find_one(doc!{"username" : username}).await? {
+            Some(_) => Ok(true),
+            None => Ok(false),
+        }
+    }
+
     pub async fn get_user(&self, id : &str) -> Result<Option<User>, ServerError> {
         let collection = self.main_db.collection::<User>("users");
         match collection.find_one(doc!{"id": id}).await? {

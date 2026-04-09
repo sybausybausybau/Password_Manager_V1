@@ -1,8 +1,13 @@
 use axum::{
-    Router, routing::{get, post}
+    Router, routing::{delete, get, post}
 };
-//use backend::{endpoints::{add_entry_to_user, create_user, get_entries, modify_entry_of_user, delete_entry_of_user}, error::ServerError, server_db::ServerDb, structs::AppState};
-use backend::{endpoints_fix::{add_entry_to_user, create_user, get_entries, modify_entry_of_user, delete_entry_of_user}, error::ServerError, server_db::ServerDb, structs::AppState};
+
+use backend::{
+    endpoints::{
+        add_entry_to_user, create_user, get_entries, modify_entry_of_user, delete_entry_of_user, login
+    }, 
+    error::ServerError, server_db::ServerDb, structs::AppState
+};
 use log::{error, info};
 use libsodium_rs::ensure_init;
 
@@ -27,21 +32,13 @@ async fn main() -> Result<(), ServerError> {
         jwt_secret : dotenv::var("JWT_SECRET").expect("Failed to load JWT Secret from .env file.")
     };
 
-/*     let app = Router::new()
-        .route("/create_user", post(create_user))
-        .route("/add_entry/{id}", post(add_entry_to_user))
-        .route("/get_entry_list/{id}", get(get_entries))
-        .route("/modify_entry/{id}", post(modify_entry_of_user))
-        .route("/delete_entry/{id}", post(delete_entry_of_user))
-        .with_state(state);
-        */
-
     let app = Router::new()
         .route("/create_user", post(create_user))
         .route("/add_entry/{token}", post(add_entry_to_user))
         .route("/get_entry_list/{token}", get(get_entries))
         .route("/modify_entry/{token}", post(modify_entry_of_user))
-        .route("/delete_entry/{token}", post(delete_entry_of_user))
+        .route("/delete_entry/{token}", delete(delete_entry_of_user))
+        .route("/login", post(login))
         .with_state(state);
 
     info!("Started server on port 3000");

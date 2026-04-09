@@ -67,8 +67,8 @@ impl User {
         }
     }
 
-    pub fn valid_master_password(&self, master_password: String) -> Result<bool, ServerError> {
-        Ok(crypto_pwhash::pwhash_str_verify(&master_password, &self.hashed_master_password.as_bytes())?)
+    pub fn valid_master_password(&self, master_password: &str) -> Result<bool, ServerError> {
+        Ok(crypto_pwhash::pwhash_str_verify(master_password, &self.hashed_master_password.as_bytes())?)
     }
 }
 

@@ -1,9 +1,11 @@
+use axum::http::HeaderMap;
 use jsonwebtoken::TokenData;
+use log::error;
 pub use serde::{Deserialize, Serialize};
 pub use jsonwebtoken::{encode, decode, DecodingKey, Validation, Algorithm, Header, EncodingKey};
 pub use chrono::Utc;
 use crate::error::ServerError;
-use axum_extra::extract::{cookie::Cookie, cookie::SameSite::Strict, CookieJar};
+use axum_extra::extract::{cookie::Cookie, cookie::SameSite::Strict};
 
 const JWT_TIME_TO_LIVE : i64 = 900;
 
@@ -14,26 +16,43 @@ pub struct Claims {
     exp: usize, // seconde
 }
 
-pub async fn create_token(user_id: String, secret: String) -> Result<String, ServerError>{
+pub async fn create_token(user_id: String, secret: &str) -> Result<String, ServerError>{
     let now = Utc::now().timestamp();
     let my_claims = Claims {sub: user_id, iat: now.to_string(), exp: (now + JWT_TIME_TO_LIVE) as usize};
-    Ok(encode(&Header::default(), &my_claims, &EncodingKey::from_secret(secret.as_ref()))?)
+    Ok(encode(&Header::default(), &my_claims, &EncodingKey::from_secret(secret.as_bytes()))?)
 }
 
-pub async fn decode_token(token: String, secret: String) -> Result<TokenData<Claims>, ServerError>{
-    Ok(decode::<Claims>(&token, &DecodingKey::from_secret(secret.as_ref()), &Validation::new(Algorithm::HS256))?)
+pub async fn decode_token(token: &str, secret: &str) -> Result<TokenData<Claims>, ServerError>{
+    Ok(decode::<Claims>(token, &DecodingKey::from_secret(secret.as_bytes()), &Validation::new(Algorithm::HS256))?)
 }
 
-pub async fn create_cookie(token: String) -> Result<CookieJar, ServerError> {
-    let jar = CookieJar::new().add(
-            Cookie::build(("token", token))
-            .http_only(true)
-            .secure(true)
-            .path("/")
-            .same_site(Strict)
-            .build()
-    );
-    Ok(jar)
+pub async fn create_cookie(token: String) -> Result<Cookie<'static>, ServerError> {
+    let cookie = 
+        Cookie::build(("token", token))
+        .http_only(true)
+        .secure(true)
+        .path("/")
+        .same_site(Strict)
+        .build();
+    
+    Ok(cookie)
+}
+
+pub async fn get_token(headers : HeaderMap, jwt_secret : &str) -> Result<TokenData<Claims>, ServerError> { // Extract and decode JWT token from HTTP headers
+    let extracted_token = headers
+        .get("Authorization")
+        .ok_or_else(|| {
+            error!("Authorization header is missing.");
+            ServerError::UnknownError("Authorization header is missing.".to_string())
+        })?
+        .to_str()
+        .map_err(|err| ServerError::UnknownError(err.to_string()))?;
+    
+    let decoded_token = decode_token(extracted_token, jwt_secret)
+        .await
+        .map_err(|err| ServerError::UnknownError(err.to_string()))?;
+
+    Ok(decoded_token)
 }
 
 #[cfg(test)]

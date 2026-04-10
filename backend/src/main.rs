@@ -26,18 +26,19 @@ async fn main() -> Result<(), ServerError> {
     env_logger::init();
     ensure_init().expect("Failed to initialize libsodium");
     
+    let mongodb_url = dotenv::var("MONGODB_URL").expect("Failed to load the mongo db url from .env file.");
 
     let state = AppState {
-        db : ServerDb::new("mongodb://localhost:27017/").await?,
+        db : ServerDb::new(&mongodb_url).await?,
         jwt_secret : dotenv::var("JWT_SECRET").expect("Failed to load JWT Secret from .env file.")
     };
 
     let app = Router::new()
         .route("/create_user", post(create_user))
-        .route("/add_entry/{token}", post(add_entry_to_user))
-        .route("/get_entry_list/{token}", get(get_entries))
-        .route("/modify_entry/{token}", post(modify_entry_of_user))
-        .route("/delete_entry/{token}", delete(delete_entry_of_user))
+        .route("/add_entry", post(add_entry_to_user))
+        .route("/get_entry_list", get(get_entries))
+        .route("/modify_entry", post(modify_entry_of_user))
+        .route("/delete_entry", delete(delete_entry_of_user))
         .route("/login", post(login))
         .with_state(state);
 

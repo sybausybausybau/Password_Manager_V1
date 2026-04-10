@@ -3,8 +3,11 @@
   	import Info from '@lucide/svelte/icons/Info';
   	import Eye from '@lucide/svelte/icons/Eye';
 
+	let { form } = $props();
+
 	let isSigningIn = $state(true);
 	let showPassword =$state(false);
+	let localErrors = $derived(form?.errors);
 
 	function toggleShowPassword() {
 		showPassword = !showPassword;
@@ -12,10 +15,10 @@
 
 	function toggleMode() {
 		isSigningIn = !isSigningIn;
+		localErrors = undefined;
 	}
 
 
-	let { form } = $props();	
 </script>
 
 <svelte:head>
@@ -37,6 +40,9 @@
 
 		<!-- * https://www.material-tailwind.com/docs/html/input -->
  		<form method="POST" action="/" use:enhance> 
+
+			<input type="hidden" name="isSigningIn" value={isSigningIn} />
+
 			<div class="flex flex-col items-center justify-center gap-4">
 				<div class="w-full max-w-sm min-w-100">
 					<input 
@@ -47,8 +53,8 @@
 					>
 				</div>
 
-			{#if form?.errors?.username}
-				{#each form.errors.username as error}
+			{#if localErrors?.username}
+				{#each localErrors?.username as error}
 					<p class="text-red-500 text-[18px]">{error}</p>
 				{/each}
             {/if}
@@ -71,14 +77,14 @@
 						>
 							<Eye color="#1d293d" />
 						</button>
-						{#if form?.errors?.password}
-							{#each form.errors.password as error}
+						{#if localErrors?.password}
+							{#each localErrors?.password as error}
 								<p class="text-red-500 text-[18px]">{error}</p>
 							{/each}
 						{:else}
 							<div class="flex gap-2 justify-center items-center">
 								<Info class="w-9 h-9" color="#90a1b9"/>
-								<p class="flex items-start mt-2 text-[18px] text-slate-400 ">
+								<p class="flex items-start mt-2 text-[18px] text-slate-400">
 									Use at least 8 characters, one uppercase, one lowercase and one number.
 								</p>    
 							</div>
@@ -88,7 +94,9 @@
 				</div>
 
 				<button 
-					class="ease-in active:translate-y-1.5 font-semibold text-xl min-w-100 rounded-md bg-slate-800 py-2 px-4 border border-transparent text-center text-white transition-all shadow-md hover:shadow-lg focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2" 
+					class={`ease-in active:translate-y-1.5 font-semibold text-xl min-w-100 rounded-md bg-slate-800 py-2 px-4 border border-transparent 
+					text-center text-white transition-all shadow-md hover:shadow-lg focus:bg-slate-700 focus:shadow-none active:bg-slate-700
+					hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2 `} 
 					type="submit"
 				>
 				

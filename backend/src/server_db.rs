@@ -92,12 +92,11 @@ impl ServerDb {
         Ok(())
     }
 
-    pub async fn get_user_id_from_username(&self, username: &str) -> Result<String, ServerError>{
+    pub async fn get_user_from_username(&self, username: &str) -> Result<Option<User>, ServerError>{
         let collection = self.main_db.collection::<User>("users");
         let user = collection
             .find_one(doc!{"username": &username})
-            .await?
-            .ok_or(ServerError::UnknownError(format!("Cannot find user with username {}", &username)))?;
-        Ok(user.id)
+            .await?;
+        Ok(user)
     }
 }

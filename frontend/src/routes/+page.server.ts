@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { fail, type Actions } from '@sveltejs/kit';
+import { fail, redirect, type Actions } from '@sveltejs/kit';
 
 export const load = (async () => {
     return {};
@@ -83,12 +83,15 @@ function parseCookies(rawCookies: string): Record<string, string>  {
 export const actions: Actions = {
     default: async ({ request, cookies }) => {
         const data = await request.formData();
+
+        const isSigningIn = data.get('isSigningIn')?.toString() === "true"; 
         const username = data.get('username')?.toString();
         const password = data.get('password')?.toString();
 
         const errors: Record<string, Array<string>> = {
             "username" : [],
-            "password" : []
+            "password" : [],
+            "message" : []
         };
 
         if (!username) {
@@ -129,14 +132,28 @@ export const actions: Actions = {
             });
         }
 
-        const body = {
-            id : "",
-            username: username,
-            hashed_master_password: password,
-            passwords: []
-        }               
+        let url = ""
+        let body = {}
 
-        const response = await fetch('http://127.0.0.1:3000/create_user', { 
+        console.log("isSigningIn : ", isSigningIn);
+
+        if (isSigningIn) {
+            url = "http://127.0.0.1:3000/login"
+            body = {
+                username: username,
+                master_password: password,
+            }  
+        } else {
+            url = "http://127.0.0.1:3000/create_user"
+            body = {
+                id : "",
+                username: username,
+                hashed_master_password: password,
+                passwords : [],
+            }  
+        }
+
+        const response = await fetch(url, { 
             method : "POST",
             body : JSON.stringify(body),
             headers : {
@@ -144,14 +161,28 @@ export const actions: Actions = {
             }
         });
 
+        
         console.log(response)
+        console.log("Body : ", await response.text())
 
         if (!response.ok) {
-            if (response.status === 406) {
-                errors.username.push("This username already exists please enter a new one.");
+            if (!isSigningIn && response.status === 406) { // if the user try to create an account with an already used username
+                errors.username.push("This username already exists, please enter another one.");
                 return fail(400, { 
                     errors, 
                     username : "",
+                });
+            } else if (isSigningIn && response.status === 404) { // if the user try to sign in but with a username that doesn't exists
+                errors.username.push("This user doesn't exists.");
+                return fail(400, { 
+                    errors, 
+                    username : "",
+                });
+            } else if (isSigningIn && response.status === 403) { // when the user try to sign in with a invalid credentials 
+                errors.password.push("Wrong password.");
+                return fail(400, { 
+                    errors, 
+                    username : username,
                 });
             }
             return fail(response.status, { 
@@ -160,10 +191,17 @@ export const actions: Actions = {
             });
         }
 
-        let parsed_cookies = parseCookies(response.headers.getSetCookie()[0])
-        cookies.set("jwt_token", parsed_cookies["token"], { path : "\\" })
-    
+        let parsedCookies = parseCookies(response.headers.getSetCookie()[0])
+        console.log(parsedCookies["token"]) 
+        cookies.set("jwt_token", parsedCookies["token"], {path : "/"})
 
-        return { success: true };
+    
+        if (isSigningIn) {
+            console.log("Successfully signed in")
+        } else {
+            console.log("Account Successfully created")
+        }
+
+        redirect(303, "/passwords_dashboard")
     }
 };

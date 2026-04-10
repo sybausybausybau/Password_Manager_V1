@@ -1,22 +1,17 @@
 use axum::{Json, extract::State, http::{HeaderMap, HeaderValue, StatusCode}};
-use serde::{Deserialize, Serialize};
-use crate::{auth::{create_token, create_cookie, get_token}, encryption::{decrypt_data, hash_password}, structs::{AppState, PasswordEntry, PasswordId, User}};
+
+use crate::{auth::{create_cookie, create_token, get_token}, encryption::{decrypt_data, hash_password}, structs::{AppState, Credential, PasswordEntry, PasswordId, User}};
 use uuid::Uuid;
 use log::{debug, error, info};
 
 fn internal_error<E: std::fmt::Display>(err: E, msg: &str) -> (StatusCode, String) {
-    error!("{}: {}", msg, err); // Log l'erreur réelle pour le serveur
-    (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()) // Message propre pour le client
+    error!("{}: {}", msg, err); // Log l'erreur pour le serveur
+    (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()) // Message pour le client
 }
 
 pub async fn create_user(State(state): State<AppState>, Json(mut user) : Json<User>) -> Result<(StatusCode, HeaderMap), (StatusCode, String)> { 
     user.id = Uuid::new_v4().to_string();
     
-/*     let user_exists = state.db.user_exists(&user.username).await.map_err(|err| {
-        error!("failed to check if user {} exists {}", user.username, err);
-        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to check if user exists".to_string())
-    })?; */
-
     let user_exists = state.db
         .user_exists_by_username(&user.username)
         .await
@@ -36,7 +31,6 @@ pub async fn create_user(State(state): State<AppState>, Json(mut user) : Json<Us
         error!( "Failed to store the user in the database, error : {}", err);
         return Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to store the user in the database.".to_string()))
     }
-
 
     let token = create_token(user.id, &state.jwt_secret)
         .await
@@ -172,25 +166,18 @@ pub async fn delete_entry_of_user(State(state): State<AppState>, headers: Header
     Ok(StatusCode::ACCEPTED)
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct Credential {
-    username : String,        
-    master_password : String
-}
-
 pub async fn login(State(state): State<AppState>, Json(cred): Json<Credential>) -> Result<HeaderMap, (StatusCode, String)> {
-    let user_id = state.db
-        .get_user_id_from_username(&cred.username)
-        .await
-        .map_err(|err| internal_error(err, "Failed to create cookies"))?;
-
     let user = state.db
-        .get_user(&user_id)
+        .get_user_from_username(&cred.username)
         .await
-        .map_err(|err| internal_error(err, "Failed to get user from database"))?
-        .ok_or((StatusCode::NOT_FOUND, "User doesn't exists".to_string()))?;
+        .map_err(|err| internal_error(err, "Failed to get user with unique username"))?;
 
-    let valid =user
+    let user = match user {
+        Some(user) => Ok(user),
+        None => Err((StatusCode::NOT_FOUND, "Could not find user with username".to_string())),
+    }?;
+
+    let valid = user
         .valid_master_password(&cred.master_password)
         .map_err(|err| internal_error(err, "Failed to verify master password"))?;
 
@@ -198,7 +185,7 @@ pub async fn login(State(state): State<AppState>, Json(cred): Json<Credential>) 
         return Err((StatusCode::FORBIDDEN, "Invalid credentials".to_string()))
     }
 
-    let token = create_token(user_id, &state.jwt_secret)
+    let token = create_token(user.id, &state.jwt_secret)
         .await
         .map_err(|err| internal_error(err, "Failed to create cookies"))?;
 

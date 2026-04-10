@@ -32,6 +32,13 @@ pub struct PasswordId {
     pub id : String
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Credential {
+    pub username : String,        
+    pub master_password : String
+}
+
+
 impl User {
     pub fn new(id : String, username: String, master_password: String) -> Result<Self, ServerError> {
         Ok(User {
@@ -68,7 +75,7 @@ impl User {
     }
 
     pub fn valid_master_password(&self, master_password: &str) -> Result<bool, ServerError> {
-        Ok(crypto_pwhash::pwhash_str_verify(master_password, &self.hashed_master_password.as_bytes())?)
+        Ok(crypto_pwhash::pwhash_str_verify(&self.hashed_master_password, master_password.as_bytes())?)
     }
 }
 

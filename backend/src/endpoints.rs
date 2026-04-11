@@ -1,5 +1,4 @@
 use axum::{Json, extract::State, http::{HeaderMap, HeaderValue, StatusCode}};
-
 use crate::{auth::{create_cookie, create_token, get_token}, encryption::{decrypt_data, hash_password}, structs::{AppState, Credential, PasswordEntry, PasswordId, User}};
 use uuid::Uuid;
 use log::{debug, error, info};
@@ -113,7 +112,7 @@ pub async fn get_entries(State(state): State<AppState>, headers: HeaderMap) -> R
     
     let user_id = token.claims.sub.to_string();
 
-    info!("User with id {}", user_id);
+    info!("User with id {} is getting his password entries", user_id);
 
     if !state.db.user_exists(&user_id).await.map_err(|err| { 
         (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())

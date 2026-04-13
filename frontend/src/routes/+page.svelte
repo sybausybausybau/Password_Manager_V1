@@ -81,11 +81,11 @@
 							{#each localErrors?.password as error}
 								<p class="text-red-500 text-[18px]">{error}</p>
 							{/each}
-						{:else}
+						{:else if !isSigningIn}
 							<div class="flex gap-2 justify-center items-center">
 								<Info class="w-9 h-9" color="#90a1b9"/>
 								<p class="flex items-start mt-2 text-[18px] text-slate-400">
-									Use at least 8 characters, one uppercase, one lowercase and one number.
+									Use at least 8 characters, one uppercase, one lowercase and one number for your password.
 								</p>    
 							</div>
 						{/if}

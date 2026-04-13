@@ -7,8 +7,6 @@ pub use chrono::Utc;
 use crate::error::ServerError;
 use axum_extra::extract::{cookie::Cookie, cookie::SameSite::Strict};
 
-const JWT_TIME_TO_LIVE : i64 = 900;
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String, // user_id
@@ -16,9 +14,9 @@ pub struct Claims {
     exp: usize, // seconde
 }
 
-pub async fn create_token(user_id: String, secret: &str) -> Result<String, ServerError>{
+pub async fn create_token(user_id: String, secret: &str, time_to_live: i64) -> Result<String, ServerError>{
     let now = Utc::now().timestamp();
-    let my_claims = Claims {sub: user_id, iat: now.to_string(), exp: (now + JWT_TIME_TO_LIVE) as usize};
+    let my_claims = Claims {sub: user_id, iat: now.to_string(), exp: (now + time_to_live) as usize};
     Ok(encode(&Header::default(), &my_claims, &EncodingKey::from_secret(secret.as_bytes()))?)
 }
 

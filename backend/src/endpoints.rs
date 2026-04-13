@@ -1,5 +1,5 @@
 use axum::{Json, extract::State, http::{HeaderMap, HeaderValue, StatusCode}};
-use crate::{auth::{create_cookie, create_token, get_token}, encryption::{decrypt_data, hash_password}, structs::{AppState, Credential, PasswordEntry, PasswordId, User}};
+use crate::{auth::{create_cookie, create_token, get_token}, encryption::{decrypt_data, hash_password}, structs::{AppState, Credential, PasswordEntry, PasswordId, User, PasswordEntryClean}};
 use uuid::Uuid;
 use log::{debug, error, info};
 
@@ -31,7 +31,7 @@ pub async fn create_user(State(state): State<AppState>, Json(mut user) : Json<Us
         return Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to store the user in the database.".to_string()))
     }
 
-    let token = create_token(user.id, &state.jwt_secret)
+    let token = create_token(user.id, &state.jwt_secret, 30 * 60)
         .await
         .map_err(|err| internal_error(err, "Failed to create token for user"))?;
 
@@ -81,7 +81,7 @@ pub async fn add_entry_to_user(State(state): State<AppState>, headers : HeaderMa
     Ok(StatusCode::ACCEPTED)
 }
 
-pub async fn modify_entry_of_user(State(state): State<AppState>, headers: HeaderMap, Json(password) : Json<PasswordEntry>) -> Result<StatusCode, (StatusCode, String)> {
+pub async fn modify_entry_of_user(State(state): State<AppState>, headers: HeaderMap, Json(password) : Json<PasswordEntryClean>) -> Result<StatusCode, (StatusCode, String)> {
     let token = get_token(headers, &state.jwt_secret)
         .await
         .map_err(|err| internal_error(err, "Failed to decode token"))?;
@@ -184,7 +184,7 @@ pub async fn login(State(state): State<AppState>, Json(cred): Json<Credential>) 
         return Err((StatusCode::FORBIDDEN, "Invalid credentials".to_string()))
     }
 
-    let token = create_token(user.id, &state.jwt_secret)
+    let token = create_token(user.id, &state.jwt_secret, cred.exp)
         .await
         .map_err(|err| internal_error(err, "Failed to create cookies"))?;
 

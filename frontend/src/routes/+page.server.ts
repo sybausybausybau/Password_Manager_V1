@@ -142,6 +142,7 @@ export const actions: Actions = {
             body = {
                 username: username,
                 master_password: password,
+                exp : 30 * 60 
             }  
         } else {
             url = "http://127.0.0.1:3000/create_user"
@@ -192,10 +193,11 @@ export const actions: Actions = {
         }
 
         let parsedCookies = parseCookies(response.headers.getSetCookie()[0])
+
         console.log(parsedCookies["token"]) 
+
         cookies.set("jwt_token", parsedCookies["token"], {path : "/"})
 
-    
         if (isSigningIn) {
             console.log("Successfully signed in")
         } else {

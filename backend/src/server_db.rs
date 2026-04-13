@@ -1,7 +1,7 @@
 use mongodb::Database;
 use mongodb::{Client, bson::doc};
 use crate::error::ServerError;
-use crate::structs::{PasswordEntry, User};
+use crate::structs::{PasswordEntry, PasswordEntryClean, User};
 //use log::info;
 
 #[derive(Clone)]
@@ -62,18 +62,29 @@ impl ServerDb {
         Ok(())
     }
 
-    pub async fn modify_entry(&self, id : &str, password: PasswordEntry) -> Result<(), ServerError>{
+    pub async fn modify_entry(&self, user_id : &str, update: PasswordEntryClean) -> Result<(), ServerError>{
         let collection = self.main_db.collection::<User>("users");
         let mut user = collection
-            .find_one(doc!{"id": id})
+            .find_one(doc!{"id": user_id})
             .await?
-            .ok_or(ServerError::UnknownError(format!("Cannot find user with id {id}")))?;
+            .ok_or(ServerError::UnknownError(format!("Cannot find user with id {user_id}")))?;
         
-        user.delete_password(&password.id)?;
 
-        user.add_password(password)?;
+        let mut entry = user.find_password(&update.id)?;
+        
+        if let Some(username) = update.username {
+            entry.username = username;
+        }
 
-        collection.replace_one(doc!{"id": id}, user).await?;
+        if let Some(new_password) = update.password {
+            entry.password = new_password
+        }
+
+        user.delete_password(&update.id)?;
+
+        user.add_password(entry)?;
+
+        collection.replace_one(doc!{"id": user_id}, user).await?;
 
         Ok(())
     }

@@ -9,7 +9,7 @@ pub struct AppState {
     pub jwt_secret : String,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub struct PasswordEntry {
     pub id: String,
     pub origin: String,
@@ -17,6 +17,13 @@ pub struct PasswordEntry {
     pub password : Vec<u8>,
     pub salt : [u8; 16],
     pub added_time : i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PasswordEntryClean {
+    pub id: String,
+    pub username : Option<String>,
+    pub password : Option<Vec<u8>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -35,7 +42,8 @@ pub struct PasswordId {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Credential {
     pub username : String,        
-    pub master_password : String
+    pub master_password : String,
+    pub exp: i64,
 }
 
 
@@ -71,6 +79,13 @@ impl User {
             Ok(())
         } else {
             Err(ServerError::UnknownError(format!("Password for password id '{}' not found", id)))
+        }
+    }
+
+    pub fn find_password(&self, id: &str) -> Result<PasswordEntry, ServerError> {
+        match self.passwords.iter().find(|x| x.id == id) {
+            Some(password) => return Ok(password.to_owned()),
+            None => return Err(ServerError::UnknownError("Could not find the password".to_string()))
         }
     }
 

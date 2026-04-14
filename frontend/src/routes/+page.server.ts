@@ -119,7 +119,7 @@ export const actions: Actions = {
         const isSigningIn = data.get('isSigningIn')?.toString() === "true"; 
         const username = data.get('username')?.toString();
         const password = data.get('password')?.toString();
-        const settings : Settings = JSON.parse(data.get('settings')?.toString() || '{ "tokenExpiration" : 3600, "autoRefreshToken" : false }"');
+        //const settings : Settings = JSON.parse(data.get('settings')?.toString() || '{ "tokenExpiration" : 3600, "autoRefreshToken" : false }"');
 
         const errors: Record<string, Array<string>> = {
             "username" : [],
@@ -175,7 +175,7 @@ export const actions: Actions = {
             body = {
                 username: username,
                 master_password: password,
-                exp : settings.tokenExpiration
+                exp : 60 * 60//settings.tokenExpiration
             }  
         } else {
             url = "http://127.0.0.1:3000/create_user"

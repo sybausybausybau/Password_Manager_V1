@@ -71,39 +71,6 @@ export async function load({ cookies, fetch }) {
     return { entries: entriesClean };
 };
 
-
-async function deleteEntry(entry: PasswordEntry, cookies: any) {
-
-    let jwt_token = cookies.get("jwt_token");
-
-    if (!jwt_token) {
-        redirect(303, "/")
-    }
-
-    let exp: number = parseJwt(jwt_token)["exp"]
-
-    if (exp < Math.floor(Date.now() / 1000)) {
-        redirect(303, "/")
-    }
-
-    let response = await fetch("http://127.0.0.1:3000/delete_entry", {
-        method: "POST",
-        headers: {
-            "Authorization": jwt_token,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(entry)
-    });
-
-    if (!response.ok) {
-        return { success: false }
-    }
-
-    return { success: true, entry }
-}
-
-
-
 export const actions: Actions = {
     create_entry: async ({ request, cookies }) => {
         const data = await request.formData();
@@ -212,12 +179,12 @@ export const actions: Actions = {
 
         return { success: true, id };
     },
-    modify_entry: async ({request, cookies}) => {
-        
+    modify_entry: async ({ request, cookies }) => {
+
         const data = await request.formData();
         const id = data.get("id")?.toString()
         const username = data.get("username")?.toString()
-        const password : Array<number> = Array.from(new TextEncoder().encode(data.get("password")?.toString()))
+        const password: Array<number> = Array.from(new TextEncoder().encode(data.get("password")?.toString()))
 
         let jwt_token = cookies.get("jwt_token");
 
@@ -252,6 +219,8 @@ export const actions: Actions = {
         }
 
         return { success: true, entry }
-    
+    },
+    logout: async ({ cookies }) => {
+        cookies.delete("jwt_token", { path: "/" })
     }
 }

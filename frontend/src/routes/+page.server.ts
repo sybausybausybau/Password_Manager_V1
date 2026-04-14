@@ -80,6 +80,38 @@ function parseCookies(rawCookies: string): Record<string, string>  {
     }, {});
 };
 
+
+/* function parseSettings(storage : localStorage) : [number, boolean] {
+
+       let settings = JSON.parse(storage.getItem("settings") || "")
+        if (!settings) {
+            return [3600, false]
+        }
+        let jwt_token_exp = settings.tokenExpiration
+
+        if (jwt_token_exp) {
+            jwt_token_exp = Number.parseInt(jwt_token_exp)
+        } else {
+            redirect(308, "/") // TODO: Need to change the redirect thing to errors but idk how to do it
+        }
+
+        let auto_refresh = settings.autoRefreshToken || false
+
+        return [jwt_token_exp, auto_refresh]
+}
+ */
+interface Settings {
+    tokenExpiration : number,
+    autoRefreshToken : boolean
+}
+
+const defaultSettings : Settings = {
+    tokenExpiration : 3600,
+    autoRefreshToken : false
+}
+
+  const STORAGE_KEY = "settings";
+
 export const actions: Actions = {
     default: async ({ request, cookies }) => {
         const data = await request.formData();
@@ -87,6 +119,7 @@ export const actions: Actions = {
         const isSigningIn = data.get('isSigningIn')?.toString() === "true"; 
         const username = data.get('username')?.toString();
         const password = data.get('password')?.toString();
+        const settings : Settings = JSON.parse(data.get('settings')?.toString() || '{ "tokenExpiration" : 3600, "autoRefreshToken" : false }"');
 
         const errors: Record<string, Array<string>> = {
             "username" : [],
@@ -142,7 +175,7 @@ export const actions: Actions = {
             body = {
                 username: username,
                 master_password: password,
-                exp : 30 * 60 
+                exp : settings.tokenExpiration
             }  
         } else {
             url = "http://127.0.0.1:3000/create_user"

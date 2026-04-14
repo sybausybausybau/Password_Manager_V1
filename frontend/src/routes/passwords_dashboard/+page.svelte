@@ -7,6 +7,7 @@
     import DeleteConfirmation from "./DeleteConfirmation.svelte";
     import AddPassword from "./AddPassword.svelte";
     import ModifyPassword from "./ModifyPassword.svelte";
+    import { redirect } from "@sveltejs/kit";
 
     let { data } = $props();
     let entries = $derived(data.entries);
@@ -137,31 +138,36 @@
 
 
             <!-- Logout -->
-            <button
-                class="flex gap-3 text-red-700 mt-auto items-center w-full p-3 rounded-lg hover:bg-slate-100"
-            >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="lucide lucide-log-out-icon lucide-log-out"
-                    ><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /><path
-                        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
-                    /></svg
+            <form class="mt-auto" method="POST" action="?/logout" use:enhance>
+                <button
+                    class="flex gap-3 text-red-700 mt-auto items-center w-full p-3 rounded-lg hover:bg-slate-100"
+                    onclick={() => {
+                        redirect(303, "/")
+                    }}
                 >
-                Log Out
-            </button>
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-log-out-icon lucide-log-out"
+                        ><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /><path
+                            d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
+                        /></svg
+                    >
+                    Log Out
+                </button>
+            </form>
         </nav>
     </div>
 
 
-
+    <a href="../settings" class="fixed top-4 right-4"><Settings size={40}/></a>
 
     <!-- RIGHT PANEL -->
     <section class="flex-1 flex flex-col">

@@ -11,12 +11,12 @@ use axum_extra::extract::{cookie::Cookie, cookie::SameSite::Strict};
 pub struct Claims {
     pub sub: String, // user_id
     iat: String, // issued at
-    exp: usize, // seconde
+    exp: u64, // seconde
 }
 
 pub async fn create_token(user_id: String, secret: &str, time_to_live: i64) -> Result<String, ServerError>{
     let now = Utc::now().timestamp();
-    let my_claims = Claims {sub: user_id, iat: now.to_string(), exp: (now + time_to_live) as usize};
+    let my_claims = Claims {sub: user_id, iat: now.to_string(), exp: (now + time_to_live) as u64};
     Ok(encode(&Header::default(), &my_claims, &EncodingKey::from_secret(secret.as_bytes()))?)
 }
 
@@ -62,7 +62,7 @@ pub mod tests {
         let my_claims = Claims {
             sub: "b@b.com".to_owned(),
             iat: "ACME".to_owned(),
-            exp: (Utc::now().timestamp() + 3600) as usize, // expires in 1 hour
+            exp: (Utc::now().timestamp() + 3600) as u64, // expires in 1 hour
         };
 
         let token = encode(&Header::default(), &my_claims, &EncodingKey::from_secret("secret".as_ref()))
@@ -76,7 +76,7 @@ pub mod tests {
         let my_claims = Claims {
             sub: "b@b.com".to_owned(),
             iat: "ACME".to_owned(),
-            exp: (Utc::now().timestamp() + 3600) as usize,
+            exp: (Utc::now().timestamp() + 3600) as u64,
         };
 
         let token = encode(&Header::default(), &my_claims, &EncodingKey::from_secret("secret".as_ref()))

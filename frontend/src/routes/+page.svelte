@@ -2,6 +2,10 @@
 	import { enhance } from "$app/forms";
   	import Info from '@lucide/svelte/icons/Info';
   	import Eye from '@lucide/svelte/icons/Eye';
+	import { onMount } from 'svelte';
+
+let settingsValue = $state(""); // Start with an empty string or default
+
 
 	let { form } = $props();
 
@@ -18,6 +22,16 @@
 		localErrors = undefined;
 	}
 
+    interface Settings {
+        tokenExpiration : number,
+        autoRefreshToken : boolean
+    }
+
+  	const STORAGE_KEY = "settings";
+
+	onMount(() => {
+		settingsValue = localStorage.getItem(STORAGE_KEY) || '{ "tokenExpiration" : 3600, "autoRefreshToken" : false }"';
+	});
 
 </script>
 
@@ -42,6 +56,7 @@
  		<form method="POST" action="/" use:enhance> 
 
 			<input type="hidden" name="isSigningIn" value={isSigningIn} />
+			<input type="hidden" name="settings" value={settingsValue} />
 
 			<div class="flex flex-col items-center justify-center gap-4">
 				<div class="w-full max-w-sm min-w-100">
